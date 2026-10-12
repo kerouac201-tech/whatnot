@@ -1,0 +1,31 @@
+import {test,expect} from '@playwright/test';
+test('桌面真实操作：双币记账、规则分类、工资、垫付、筛选与刷新持久化',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');await expect(page.getByRole('heading',{name:'经营概览',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'记一笔',exact:true}).first().click();
+ let dialog=page.getByRole('dialog');await dialog.getByLabel('金额',{exact:true}).fill('80');await dialog.getByLabel('说明',{exact:true}).fill('买纸箱');await dialog.getByLabel('业务日期').click();
+ await expect(dialog.getByText('匹配关键词：纸箱',{exact:true})).toBeVisible();
+ await dialog.getByRole('button',{name:'保存',exact:true}).click();await expect(dialog).not.toBeVisible();
+ await page.getByRole('button',{name:'记一笔',exact:true}).first().click();dialog=page.getByRole('dialog');
+ await dialog.getByRole('button',{name:'收入',exact:true}).click();await dialog.getByLabel('币种',{exact:true}).selectOption('USD');await dialog.getByLabel('金额',{exact:true}).fill('100');await dialog.getByLabel('说明',{exact:true}).fill('Whatnot到账');await dialog.getByLabel('本笔汇率').fill('7.2');await dialog.getByRole('button',{name:'保存',exact:true}).click();await expect(dialog).not.toBeVisible();
+ await expect(page.locator('.highlighted h2')).toHaveText('¥640.00');
+ await page.getByRole('button',{name:'主播工资',exact:true}).click();await page.getByRole('button',{name:'录入工时',exact:true}).first().click();dialog=page.getByRole('dialog');
+ await dialog.getByLabel('主播姓名').fill('主播小林');await dialog.getByLabel('工时（小时）').fill('4');await dialog.getByLabel('时薪',{exact:true}).fill('50');await dialog.getByRole('button',{name:'保存',exact:true}).click();await expect(dialog).not.toBeVisible();
+ await page.getByRole('button',{name:'支付工资'}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'确认已付款'}).click();await expect(dialog).not.toBeVisible();await expect(page.getByText('已支付',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'支付工资'})).toHaveCount(0);
+ await page.getByRole('button',{name:'记一笔',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByLabel('金额',{exact:true}).fill('25');await dialog.getByLabel('说明',{exact:true}).fill('胶带垫付');await dialog.getByLabel('付款方式').selectOption('employee');await dialog.getByLabel('垫付人',{exact:true}).fill('小张');await dialog.getByRole('button',{name:'保存',exact:true}).click();await expect(dialog).not.toBeVisible();
+ await page.getByRole('button',{name:'流水账本',exact:true}).click();await page.getByRole('button',{name:'偿还',exact:true}).click();dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'确认已付款'}).click();await expect(dialog).not.toBeVisible();
+ await expect(page.getByText('已偿还',{exact:true})).toBeVisible();
+ await page.getByLabel('搜索流水').fill('Whatnot');await expect(page.locator('tbody tr')).toHaveCount(1);await page.getByLabel('搜索流水').fill('');
+ await page.getByRole('button',{name:'经营概览',exact:true}).click();await expect(page.locator('.highlighted h2')).toHaveText('¥415.00');
+ await page.reload();await expect(page.locator('.highlighted h2')).toHaveText('¥415.00');
+ await page.screenshot({path:'/tmp/shizhang-desktop.png',fullPage:true});expect(errors).toEqual([]);
+});
+test('手机布局可记账、无页面横向溢出，导入预览后才可提交',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('heading',{name:'经营概览',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'/tmp/shizhang-mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'记一笔',exact:true}).first().click();const dialog=page.getByRole('dialog');await expect(dialog.getByLabel('金额',{exact:true})).toBeVisible();await dialog.getByRole('button',{name:'取消',exact:true}).click();
+ await page.getByRole('button',{name:'流水账本',exact:true}).click();await page.getByRole('button',{name:'导入',exact:true}).click();await expect(page.getByRole('button',{name:'确认导入'})).toBeDisabled();
+ const date=await page.request.get('/api/state').then(r=>r.json()).then(d=>new Intl.DateTimeFormat('en-CA',{timeZone:d.settings.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
+ await page.getByLabel('CSV 内容').fill('日期,类型,金额,币种,说明,分类,账户,汇率\n'+date+',支出,19.90,CNY,手机导入包材,包材,人民币银行账户,1');await page.getByRole('button',{name:'校验并预览'}).click();await expect(page.getByText('校验通过：1 笔')).toBeVisible();await page.getByRole('button',{name:'确认导入'}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByText('手机导入包材',{exact:true})).toBeVisible();expect(errors).toEqual([]);
+});

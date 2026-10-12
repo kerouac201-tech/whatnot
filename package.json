@@ -1,0 +1,25 @@
+{
+  "name": "whatnot-ledger",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "vite build",
+    "start": "node scripts/start-production.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "lucide-react": "0.468.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "vite": "6.4.4"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
